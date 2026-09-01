@@ -21,6 +21,9 @@ def ydl_cmd(video_url: str, out_pattern: str):
     cmd = ["yt-dlp", "-f", "best[height<=1080]/best", "--no-playlist", "-o", out_pattern]
     if Path(COOKIES_PATH).is_file():
         cmd += ["--cookies", COOKIES_PATH]
+    proxy = os.environ.get("YT_PROXY")
+    if proxy:
+        cmd += ["--proxy", proxy]
     cmd += [video_url]
     return cmd
 
