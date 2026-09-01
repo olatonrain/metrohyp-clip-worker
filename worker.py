@@ -11,9 +11,18 @@ DB = sqlite3.connect(str(DATA_DIR / "jobs.db"), check_same_thread=False)
 DB.execute("CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, video_url TEXT, status TEXT, result TEXT, created_at TEXT)")
 DB.commit()
 
+COOKIES_PATH = os.environ.get("YT_COOKIES_FILE", "/data/cookies.txt")
+
 class JobRequest(BaseModel):
     video_url: str
     max_clips: int = 10
+
+def ydl_cmd(video_url: str, out_pattern: str):
+    cmd = ["yt-dlp", "-f", "best[height<=1080]/best", "--no-playlist", "-o", out_pattern]
+    if Path(COOKIES_PATH).is_file():
+        cmd += ["--cookies", COOKIES_PATH]
+    cmd += [video_url]
+    return cmd
 
 def process_job(job_id: str, video_url: str, max_clips: int):
     update_status(job_id, "downloading")
@@ -21,7 +30,7 @@ def process_job(job_id: str, video_url: str, max_clips: int):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
             print(f"Downloading {video_url}...")
-            subprocess.run(["yt-dlp", "-f", "best[height<=1080]", "-o", f"{tmp}/video.%(ext)s", video_url], check=True, capture_output=True, timeout=1800)
+            subprocess.run(ydl_cmd(video_url, f"{tmp}/video.%(ext)s"), check=True, capture_output=True, timeout=1800)
             video = next(tmp.glob("video.*"))
             print(f"Downloaded {video} ({video.stat().st_size / 1024 / 1024:.0f}MB)")
             update_status(job_id, "transcribing")
