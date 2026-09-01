@@ -77,8 +77,28 @@ def auto_score(segments, max_clips):
         return sorted(clips, key=lambda c: c["score"], reverse=True)[:max_clips]
     except Exception as e:
         print(f"Groq scoring error: {e}")
-        import random
-        return [{"start": s["start"], "end": s["end"], "score": 50, "title": "Clip", "hashtags": "viral"} for s in segments[:max_clips]]
+        return fallback_clips(segments, max_clips)
+
+def fallback_clips(segments, max_clips):
+    # Group contiguous segments into 60-175s windows (whisper segments are only ~2-10s each)
+    clips, cur_start, cur_end = [], None, None
+    for s in segments:
+        if cur_start is None:
+            cur_start, cur_end = s["start"], s["end"]
+        elif s["end"] - cur_start > 175:
+            if cur_end - cur_start >= 60:
+                clips.append({"start": cur_start, "end": cur_end, "score": 50, "title": "Clip", "hashtags": "viral shorts"})
+            cur_start, cur_end = s["start"], s["end"]
+        else:
+            cur_end = s["end"]
+            if cur_end - cur_start >= 60:
+                clips.append({"start": cur_start, "end": cur_end, "score": 50, "title": "Clip", "hashtags": "viral shorts"})
+                cur_start, cur_end = None, None
+        if len(clips) >= max_clips:
+            break
+    if cur_start is not None and len(clips) < max_clips and cur_end - cur_start >= 60:
+        clips.append({"start": cur_start, "end": cur_end, "score": 50, "title": "Clip", "hashtags": "viral shorts"})
+    return clips[:max_clips]
 
 def cut_clip(video_path, start, end, output_path):
     duration = end - start
